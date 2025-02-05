@@ -1,0 +1,13 @@
+# 忽略构建内容
+.DS_Store
+.idea/
+.vscode/
+logs/
+out/
+test-build/
+release/
+# 忽略调试内容
+__pycache__/
+*/__pycache__/
+# 忽略测试文件
+test*.py
