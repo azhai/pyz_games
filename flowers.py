@@ -10,6 +10,11 @@ class Cell:
     flower = False
     state = "covered"
 
+    def __init__(self, y, x):
+        self.y = y
+        self.x = x
+        self.count = -1
+
     def is_complete(self) -> bool:
         return self.state == "uncovered" or self.flower
 
@@ -38,7 +43,7 @@ class MineSweeper:
         self.first_click = True
         self.selected_x = 0
         self.selected_y = 0
-        self.grid = [[Cell() for _ in range(self.grid_x_count)] for _ in range(self.grid_y_count)]
+        self.grid = [[Cell(y, x) for x in range(self.grid_x_count)] for y in range(self.grid_y_count)]
 
     def get_position_cell(self, a, b) -> Cell | None:
         try:
@@ -137,26 +142,32 @@ class MineSweeper:
         def draw_cell(image, x, y):
             screen.blit(image, (x * self.cell_size, y * self.cell_size))
 
+        def draw_uncovered_cell(cell, x, y):
+            draw_cell("uncovered", x, y)
+            if cell.flower and self.game_over:
+                return draw_cell("flower", x, y)
+            flower_count = self.get_surrounding_flower_count(x, y)
+            if flower_count > 0:
+                return draw_cell(str(flower_count), x, y)
+
+        def draw_selected_cell(cell, x, y):
+            if not pygame.mouse.get_pressed()[0]:
+                return draw_cell("covered_highlighted", x, y)
+            elif cell.state == "flag":
+                return draw_cell("covered", x, y)
+            else:
+                return draw_cell("uncovered", x, y)
+
+
         for y in range(self.grid_y_count):
             for x in range(self.grid_x_count):
                 curr_cell = self.get_position_cell(y, x)
                 if curr_cell.state == "uncovered":
-                    draw_cell("uncovered", x, y)
-                    if curr_cell.flower and self.game_over:
-                        draw_cell("flower", x, y)
-                    elif self.get_surrounding_flower_count(x, y) > 0:
-                        draw_cell(str(self.get_surrounding_flower_count(x, y)), x, y)
+                    draw_uncovered_cell(curr_cell, x, y)
+                elif x == self.selected_x and y == self.selected_y and not self.game_over:
+                    draw_selected_cell(curr_cell, x, y)
                 else:
-                    if x == self.selected_x and y == self.selected_y and not self.game_over:
-                        if pygame.mouse.get_pressed()[0]:
-                            if curr_cell.state == "flag":
-                                draw_cell("covered", x, y)
-                            else:
-                                draw_cell("uncovered", x, y)
-                        else:
-                            draw_cell("covered_highlighted", x, y)
-                    else:
-                        draw_cell("covered", x, y)
+                    draw_cell("covered", x, y)
 
                 if curr_cell.state == "flag":
                     draw_cell("flag", x, y)
