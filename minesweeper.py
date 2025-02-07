@@ -3,7 +3,7 @@ from random import sample
 from pgzero.constants import mouse
 
 BACK_COLOR = (212, 212, 212)
-TEXT_COLOR = (218, 165, 32)
+TEXT_COLOR = (240, 165, 32)
 
 
 class Cell:
@@ -37,6 +37,7 @@ class Cell:
 
 class Board:
     """ 扫雷游戏 """
+    name = "扫雷"
     grid = []
     flower_remain = 0
     game_over = False
@@ -91,15 +92,15 @@ class Board:
         cell_count = self.grid_x_count * self.grid_y_count
         self.flower_remain = int(math.ceil(cell_count / 7))
         exclude = sx * self.grid_y_count + sy
-        # 筛选两次更为分散
+        # 筛选两次，让地雷更为分散
         indexes = [i for i in range(cell_count) if i != exclude]
         indexes = sample(indexes, self.flower_remain * 2)
         for i in sample(indexes, self.flower_remain):
             x, y = i // self.grid_y_count, i % self.grid_y_count
             self.get_cell(x, y).flower = True
 
-    def show_uncovered_cells(self, sx, sy):
-        stack = [(sx, sy)]
+    def show_uncovered_cells(self, stack):
+        """ 点开当前单元格，如果是鼠标中键点击，同时点开附近八格 """
         while stack:
             x, y = stack.pop()
             self.get_cell(x, y).state = "uncovered"
@@ -108,6 +109,17 @@ class Board:
             for c in self.get_near_cells(x, y):
                 if c.state in ("covered", "question"):
                     stack.append((c.x, c.y))
+
+    def click_right(self, cell):
+        """ 鼠标右键点击 """
+        if cell.state == "uncovered":
+            return
+        # 处理右键点击，切换单元格状态
+        state = cell.next_state()
+        if state == "flag":
+            self.flower_remain -= 1
+        elif state == "question":
+            self.flower_remain += 1
 
     def click(self, button, mouse_x, mouse_y):
         if self.game_over:
@@ -118,45 +130,35 @@ class Board:
         sel_cell = self.get_cell(sx, sy)
 
         if button == mouse.RIGHT:
-            if sel_cell.state == "uncovered":
-                return
-            # 处理右键点击，切换单元格状态
-            state = sel_cell.next_state()
-            if state == "flag":
-                self.flower_remain -= 1
-            elif state == "question":
-                self.flower_remain += 1
-            return
-
+            return self.click_right(sel_cell)
         if sel_cell.state == "flag":
             return
-
-        # if button == mouse.MIDDLE:
-        #     if sel_cell.state != "uncovered":
-        #         return
-        #     for c in self.get_near_cells(sx, sy):
-        #         if c.state == "covered":
-        #             c.state = "uncovered"
-        #     return
 
         if self.first_click:
             self.first_click = False
             self.set_flower_cells(sx, sy)
 
+        # 鼠标左键或中键点击到地雷，游戏结束
         if sel_cell.flower:
             sel_cell.state = "uncovered"
             self.game_over = True
             return
 
+        stack = [(sx, sy)]
+        if button == mouse.MIDDLE:
+            for c in self.get_near_cells(sx, sy):
+                if c.state == "covered":
+                    stack.append((c.x, c.y))
+        self.show_uncovered_cells(stack)
+
         if self.flower_remain <= 0:
+            # 检查当前游戏是否完成
             complete = all(
                 self.get_cell(x, y).is_complete()
                 for y in range(self.grid_y_count) for x in range(self.grid_x_count)
             )
             if complete:
                 self.game_over = True
-
-        self.show_uncovered_cells(sx, sy)
 
     def draw_board(self, screen, pressed, mouse_x, mouse_y):
         # 绘制游戏界面
@@ -202,7 +204,10 @@ class Board:
         # 绘制游戏信息
         text = ""
         if self.game_over:
-            text = " Game Over"
+            if self.flower_remain > 0:
+                text = " Game Over"
+            else:
+                text = " You Win !"
         elif self.flower_remain > 0:
             text = f" Remain: {self.flower_remain}"
         info = font.render(text, True, TEXT_COLOR)

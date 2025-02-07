@@ -4,13 +4,14 @@ from pygame.constants import K_SPACE
 # from pgzero.game import screen
 import minesweeper
 
-TITLE = "扫雷"
 CELL_SIZE, INFO_HEIGHT = 18, 30
 X_COUNT, Y_COUNT = 19, 14
 WIDTH = CELL_SIZE * X_COUNT
 BOARD_HEIGHT = CELL_SIZE * Y_COUNT
 HEIGHT = BOARD_HEIGHT + INFO_HEIGHT
+
 game = minesweeper.Board(CELL_SIZE, X_COUNT, Y_COUNT)
+TITLE = game.name
 
 def update():
     pass
