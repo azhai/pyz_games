@@ -1,6 +1,9 @@
 import math
-import random
+from random import sample
 from pgzero.constants import mouse
+
+BACK_COLOR = (212, 212, 212)
+TEXT_COLOR = (218, 165, 32)
 
 
 class Cell:
@@ -35,8 +38,9 @@ class Cell:
 class Board:
     """ 扫雷游戏 """
     grid = []
+    flower_remain = 0
     game_over = False
-    flower_count = 0
+    first_click = True
 
     def __init__(self, cell_size, grid_x_count, grid_y_count):
         self.cell_size = cell_size
@@ -45,12 +49,13 @@ class Board:
         self.reset()
 
     def reset(self):
-        self.game_over = False
-        self.flower_count = 0
         self.grid = [
             [Cell(y, x) for x in range(self.grid_x_count)]
             for y in range(self.grid_y_count)
         ]
+        self.flower_remain = 0
+        self.game_over = False
+        self.first_click = True
 
     def get_cell(self, x, y) -> Cell | None:
         try:
@@ -83,15 +88,15 @@ class Board:
         return cell.count
 
     def set_flower_cells(self, sx = -1, sy = -1):
-        possible_list = [
-            (x, y) for y in range(self.grid_y_count) for x in range(self.grid_x_count)
-            if not (x == sx and y == sy)
-        ]
-        self.flower_count = int(math.ceil(len(possible_list) / 7))
-        for _ in range(self.flower_count):
-            n = random.randrange(len(possible_list))
-            pos = possible_list.pop(n)
-            self.get_cell(*pos).flower = True
+        cell_count = self.grid_x_count * self.grid_y_count
+        self.flower_remain = int(math.ceil(cell_count / 7))
+        exclude = sx * self.grid_y_count + sy
+        # 筛选两次更为分散
+        indexes = [i for i in range(cell_count) if i != exclude]
+        indexes = sample(indexes, self.flower_remain * 2)
+        for i in sample(indexes, self.flower_remain):
+            x, y = i // self.grid_y_count, i % self.grid_y_count
+            self.get_cell(x, y).flower = True
 
     def show_uncovered_cells(self, sx, sy):
         stack = [(sx, sy)]
@@ -111,15 +116,31 @@ class Board:
 
         sx, sy = self.get_selected_pos(mouse_x, mouse_y)
         sel_cell = self.get_cell(sx, sy)
-        if button == mouse.RIGHT and sel_cell.state != "uncovered":
+
+        if button == mouse.RIGHT:
+            if sel_cell.state == "uncovered":
+                return
             # 处理右键点击，切换单元格状态
-            sel_cell.next_state()
+            state = sel_cell.next_state()
+            if state == "flag":
+                self.flower_remain -= 1
+            elif state == "question":
+                self.flower_remain += 1
             return
 
-        if button != mouse.LEFT or sel_cell.state == "flag":
+        if sel_cell.state == "flag":
             return
 
-        if self.flower_count <= 0:
+        # if button == mouse.MIDDLE:
+        #     if sel_cell.state != "uncovered":
+        #         return
+        #     for c in self.get_near_cells(sx, sy):
+        #         if c.state == "covered":
+        #             c.state = "uncovered"
+        #     return
+
+        if self.first_click:
+            self.first_click = False
             self.set_flower_cells(sx, sy)
 
         if sel_cell.flower:
@@ -127,17 +148,19 @@ class Board:
             self.game_over = True
             return
 
-        self.show_uncovered_cells(sx, sy)
-        complete = all(
-            self.get_cell(x, y).is_complete()
-            for y in range(self.grid_y_count) for x in range(self.grid_x_count)
-        )
-        if complete:
-            self.game_over = True
+        if self.flower_remain <= 0:
+            complete = all(
+                self.get_cell(x, y).is_complete()
+                for y in range(self.grid_y_count) for x in range(self.grid_x_count)
+            )
+            if complete:
+                self.game_over = True
 
-    def draw(self, screen, pressed, mouse_x, mouse_y):
+        self.show_uncovered_cells(sx, sy)
+
+    def draw_board(self, screen, pressed, mouse_x, mouse_y):
         # 绘制游戏界面
-        screen.fill((0, 0, 0))
+        screen.fill(BACK_COLOR)
 
         def draw_cell(image, cx, cy):
             screen.blit(image, (cx * self.cell_size, cy * self.cell_size))
@@ -174,3 +197,13 @@ class Board:
                     draw_cell("flag", x, y)
                 elif curr_cell.state == "question":
                     draw_cell("question", x, y)
+
+    def draw_info(self, screen, font, height):
+        # 绘制游戏信息
+        text = ""
+        if self.game_over:
+            text = " Game Over"
+        elif self.flower_remain > 0:
+            text = f" Remain: {self.flower_remain}"
+        info = font.render(text, True, TEXT_COLOR)
+        screen.blit(info, (0, height))
