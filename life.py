@@ -1,5 +1,5 @@
 import pgzrun
-import pygame.mouse
+from pygame import Rect
 from pygame.constants import K_SPACE, K_LEFT, K_RIGHT
 from pgzero.constants import mouse
 import board
@@ -8,9 +8,8 @@ CELL_SIZE = 10
 X_COUNT, Y_COUNT = 70, 50
 
 BACK_COLOR = (212, 212, 212)
-BASE_COLOR = (220, 220, 220)
-CURR_COLOR = (255, 0, 255)
-HIGH_COLOR = (0, 255, 255)
+DEAD_COLOR = (220, 220, 220)
+LIVE_COLOR = (255, 0, 255)
 
 class LifeBoard(board.Board):
     """ 细胞游戏 """
@@ -74,9 +73,9 @@ class LifeBoard(board.Board):
                 )
 
                 if self.grid[y][x]:
-                    color = (255, 0, 255)
+                    color = LIVE_COLOR
                 else:
-                    color = (220, 220, 220)
+                    color = DEAD_COLOR
 
                 screen.draw.filled_rect(rect, color)
 
