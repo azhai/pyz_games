@@ -1,7 +1,15 @@
 import math
-from random import sample
-
+import pgzrun
+import pygame.font
+from pygame.constants import K_SPACE
 from pgzero.constants import mouse
+from random import sample
+import board
+
+# 单元格大小，由图片素材大小决定，底部信息栏高度与字体相关
+CELL_SIZE, INFO_HEIGHT = 18, 30
+# 棋盘大小 14行19列
+X_COUNT, Y_COUNT = 19, 14
 
 BACK_COLOR = (212, 212, 212)
 TEXT_COLOR = (240, 165, 32)
@@ -36,7 +44,7 @@ class Cell:
         return self.state
 
 
-class Board:
+class MineBoard(board.Board):
     """ 扫雷游戏 """
     name = "扫雷"
     grid = []
@@ -44,17 +52,14 @@ class Board:
     game_over = False  # 游戏结束，如果同时mime_remain==0则是胜利
     first_click = True  # 左键点击第一个单元格
 
-    def __init__(self, cell_size, grid_x_count, grid_y_count):
-        self.cell_size = cell_size
-        self.grid_x_count = grid_x_count
-        self.grid_y_count = grid_y_count
-        self.reset()
+    def __init__(self):
+        super().__init__(CELL_SIZE, X_COUNT, Y_COUNT, INFO_HEIGHT)
 
     def reset(self):
         """ 重开游戏，埋雷推迟到第一次点击 """
         self.grid = [
-            [Cell(y, x) for x in range(self.grid_x_count)]
-            for y in range(self.grid_y_count)
+            [Cell(y, x) for x in range(self.col_count)]
+            for y in range(self.row_count)
         ]
         self.mime_remain = 0
         self.game_over = False
@@ -68,40 +73,28 @@ class Board:
 
     def get_near_cells(self, x, y) -> [Cell]:
         """ 找出周围（最多）8个单元格 """
-        for dx in range(-1, 2):
-            for dy in range(-1, 2):
-                if (
-                        not (dx == 0 and dy == 0)
-                        and 0 <= (x + dx) < self.grid_x_count
-                        and 0 <= (y + dy) < self.grid_y_count
-                ):
-                    yield self.get_cell(x + dx, y + dy)
-
-    def get_selected_pos(self, mouse_x, mouse_y) -> (int, int):
-        """ 鼠标选中的单元格位置 """
-        cell_x = math.floor(max(mouse_x, 0) / self.cell_size)
-        sx = min(cell_x, self.grid_x_count - 1)
-        cell_y = math.floor(max(mouse_y, 0) / self.cell_size)
-        sy = min(cell_y, self.grid_y_count - 1)
-        return sx, sy
+        for x, y in self.get_neighbor_cells(x, y):
+            yield self.get_cell(x, y)
 
     def get_surrounding_mime_count(self, x, y) -> int:
         """ 获取周围8格地雷数量，缓存在当前单元格中 """
         cell = self.get_cell(x, y)
         if cell.count < 0:
-            cell.count = sum([1 for c in self.get_near_cells(x, y) if c.is_mime])
+            cell.count = sum(
+                1 for c in self.get_near_cells(x, y) if c.is_mime
+            )
         return cell.count
 
     def set_mime_cells(self, sx=-1, sy=-1):
         """ 埋雷，数量为总单元格数的1/7 """
-        cell_count = self.grid_x_count * self.grid_y_count
+        cell_count = self.col_count * self.row_count
         self.mime_remain = int(math.ceil(cell_count / 7))
-        exclude = sx * self.grid_y_count + sy
+        exclude = sx * self.row_count + sy
         # 筛选两次，让地雷更为分散
         indexes = [i for i in range(cell_count) if i != exclude]
         indexes = sample(indexes, self.mime_remain * 3)
         for i in sample(indexes, self.mime_remain):
-            x, y = i // self.grid_y_count, i % self.grid_y_count
+            x, y = i // self.row_count, i % self.row_count
             self.get_cell(x, y).is_mime = True
 
     def open_more_cells(self, stack):
@@ -115,7 +108,7 @@ class Board:
                 if c.state in ("covered", "question"):
                     stack.append((c.x, c.y))
 
-    def click_right(self, cell):
+    def on_right_clicked(self, cell):
         """ 鼠标右键点击 """
         if cell.state == "uncovered":
             return
@@ -126,18 +119,19 @@ class Board:
         elif state == "question":
             self.mime_remain += 1
 
-    def click(self, button, mouse_x, mouse_y):
+    def on_clicked(self, button, mouse_x, mouse_y):
         """ 鼠标（包括左、中、右）点击操作 """
         if self.game_over:
             self.reset()
             return
 
         # 将鼠标点击坐标转化为对应位置的单元格
-        sx, sy = self.get_selected_pos(mouse_x, mouse_y)
+        sx, sy = self.get_mouse_loc(mouse_x, mouse_y)
+        # print("mouse:", button, sx, sy)
         sel_cell = self.get_cell(sx, sy)
 
         if button == mouse.RIGHT:
-            return self.click_right(sel_cell)
+            return self.on_right_clicked(sel_cell)
         if sel_cell.state == "flag":
             return
 
@@ -164,12 +158,12 @@ class Board:
             # 检查当前游戏是否完成，即是否胜利
             complete = all(
                 self.get_cell(x, y).is_complete()
-                for y in range(self.grid_y_count) for x in range(self.grid_x_count)
+                for y in range(self.row_count) for x in range(self.col_count)
             )
             if complete:
                 self.game_over = True
 
-    def draw_board(self, screen, pressed, mouse_x, mouse_y):
+    def draw_board(self, screen, button = 0, mouse_x = 0, mouse_y = 0):
         """ 根据各自状态绘制棋盘中所有单元格 """
         # 绘制背景颜色
         screen.fill(BACK_COLOR)
@@ -186,23 +180,25 @@ class Board:
             if mime_count > 0:
                 draw_cell(str(mime_count), x, y)
 
-        def draw_selected_cell(cell):
-            if not pressed:
-                draw_cell("covered_highlighted", cell.x, cell.y)
-            elif cell.state == "flag":
-                draw_cell("covered", cell.x, cell.y)
-            else:
-                draw_cell("uncovered", cell.x, cell.y)
+        # def draw_selected_cell(cell):
+        #     if button != mouse.LEFT:
+        #         draw_cell("covered_highlighted", cell.x, cell.y)
+        #     elif cell.state == "flag":
+        #         draw_cell("covered", cell.x, cell.y)
+        #     else:
+        #         draw_cell("uncovered", cell.x, cell.y)
 
-        sx, sy = self.get_selected_pos(mouse_x, mouse_y)
+        # sx, sy = self.get_mouse_loc(mouse_x, mouse_y)
+        # print("mouse:", button, sx, sy)
+
         # 依次绘制棋盘所有单元格
-        for y in range(self.grid_y_count):
-            for x in range(self.grid_x_count):
+        for y in range(self.row_count):
+            for x in range(self.col_count):
                 curr_cell = self.get_cell(x, y)
                 if curr_cell.state == "uncovered":
                     draw_uncovered_cell(curr_cell)
-                elif x == sx and y == sy and not self.game_over:
-                    draw_selected_cell(curr_cell)
+                # elif x == sx and y == sy and not self.game_over:
+                #     draw_selected_cell(curr_cell)
                 else:
                     draw_cell("covered", x, y)
 
@@ -223,3 +219,25 @@ class Board:
             text = f" Remain: {self.mime_remain}"
         info = font.render(text, True, TEXT_COLOR)
         screen.blit(info, (0, height))
+
+
+game = MineBoard()
+TITLE = game.name  # 窗口标题
+WIDTH, HEIGHT = game.screen_size
+
+def on_key_down(key):
+    # 按下空格键重置游戏
+    if key == K_SPACE:
+        game.reset()
+
+def on_mouse_up(pos, button):
+    game.on_clicked(button, *pos)
+
+def draw():
+    screen.clear()  # 清除屏幕内容
+    game.draw_board(screen)
+    font = pygame.font.Font(None, 32)
+    height = HEIGHT - INFO_HEIGHT + 5
+    game.draw_info(screen, font, height)
+
+pgzrun.go()
