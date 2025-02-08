@@ -1,9 +1,11 @@
 import math
+from random import sample
+
 import pgzrun
 import pygame.font
-from pygame.constants import K_SPACE
 from pgzero.constants import mouse
-from random import sample
+from pygame.constants import K_SPACE
+
 import board
 
 # 单元格大小，由图片素材大小决定，底部信息栏高度与字体相关
@@ -163,7 +165,7 @@ class MineBoard(board.Board):
             if complete:
                 self.game_over = True
 
-    def draw_board(self, screen, button = 0, mouse_x = 0, mouse_y = 0):
+    def draw_board(self, screen, button=0, mouse_x=0, mouse_y=0):
         """ 根据各自状态绘制棋盘中所有单元格 """
         # 绘制背景颜色
         screen.fill(BACK_COLOR)
@@ -225,13 +227,16 @@ game = MineBoard()
 TITLE = game.name  # 窗口标题
 WIDTH, HEIGHT = game.screen_size
 
+
 def on_key_down(key):
     # 按下空格键重置游戏
     if key == K_SPACE:
         game.reset()
 
+
 def on_mouse_up(pos, button):
     game.on_clicked(button, *pos)
+
 
 def draw():
     screen.clear()  # 清除屏幕内容
@@ -239,5 +244,6 @@ def draw():
     font = pygame.font.Font(None, 32)
     height = HEIGHT - INFO_HEIGHT + 5
     game.draw_info(screen, font, height)
+
 
 pgzrun.go()

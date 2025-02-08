@@ -1,10 +1,12 @@
 import math
+
 import pygame.mouse
+
 
 class Board:
     """ 棋盘 """
 
-    def __init__(self, cell_size, col_count, row_count, info_height = 0):
+    def __init__(self, cell_size, col_count, row_count, info_height=0):
         self.cell_size = cell_size
         self.col_count = col_count
         self.row_count = row_count

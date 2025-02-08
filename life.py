@@ -1,7 +1,8 @@
 import pgzrun
+from pgzero.constants import mouse
 from pygame import Rect
 from pygame.constants import K_SPACE, K_LEFT, K_RIGHT
-from pgzero.constants import mouse
+
 import board
 
 CELL_SIZE = 10
@@ -10,6 +11,7 @@ X_COUNT, Y_COUNT = 70, 50
 BACK_COLOR = (212, 212, 212)
 DEAD_COLOR = (220, 220, 220)
 LIVE_COLOR = (255, 0, 255)
+
 
 class LifeBoard(board.Board):
     """ 细胞游戏 """
@@ -41,7 +43,7 @@ class LifeBoard(board.Board):
                 )
         return next_grid
 
-    def on_clicked(self, button, mouse_x = 0, mouse_y = 0):
+    def on_clicked(self, button, mouse_x=0, mouse_y=0):
         sx, sy = self.get_mouse_loc(mouse_x, mouse_y)
         # print("mouse:", button, sx, sy)
         if button == mouse.LEFT:
@@ -84,8 +86,10 @@ game = LifeBoard()
 TITLE = game.name  # 窗口标题
 WIDTH, HEIGHT = game.screen_size
 
+
 def on_key_down(key):
     game.on_pressed(key)
+
 
 def on_mouse_move(pos, buttons):
     if mouse.LEFT in buttons:
@@ -93,8 +97,10 @@ def on_mouse_move(pos, buttons):
     elif mouse.RIGHT in buttons:
         game.on_clicked(mouse.RIGHT, *pos)
 
+
 def draw():
     screen.clear()  # 清除屏幕内容
     game.draw_screen(screen)
+
 
 pgzrun.go()
